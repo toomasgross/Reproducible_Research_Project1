@@ -1,0 +1,149 @@
+---
+title: "PA1_template.Rmd"
+author: "Toomas"
+date: "29/12/2020"
+output: html_document
+---
+
+
+
+## Loading, preprocessing and exploring the data
+
+
+```{r echo=TRUE}
+library(ggplot2)
+
+
+#loading data
+if (!file.exists("activity.csv") ) {
+        unzip("activity.zip")
+}
+raw_data <- read.csv("activity.csv", header = TRUE)
+
+#eliminating missing values
+main_data <- na.omit(raw_data)
+
+#exploring data
+head(main_data)
+tail(main_data)
+str(main_data)
+dim(main_data)
+```
+
+## What is mean total number of steps taken per day?
+## Histogram of the total number of steps taken each day
+## Mean and median of the total number of steps
+
+```{r}
+
+#total number of steps taken per day
+steps_per_day <- aggregate(main_data$steps, by = list(Steps.Date = main_data$date), FUN = "sum")
+
+#histogram
+png("plot1_total_number_of_steps_per_day.png", width=480, height=480)
+ggp <- hist(steps_per_day$x, col = "blue", 
+     breaks = 20,
+     main = "Total number of steps taken each day",
+     xlab = "Number of steps per day")
+print(ggp)
+dev.off()
+
+#mean steps
+mean_steps <- mean(steps_per_day[,2])
+print (mean_steps)
+
+#median steps
+median_steps <- median(steps_per_day[,2])
+print (median_steps)
+```
+
+
+## What is the average daily activity pattern?
+
+
+```{r}
+
+# the plot of the number of steps taken averaged across all days, along all 5-min intervals
+avaraged_day <- aggregate(main_data$steps, 
+                          by = list(Interval = main_data$interval), 
+                          FUN = "mean")
+png("plot2_Average_daily_activity_pattern.png", width=480, height=480)
+ggp <- plot(avaraged_day$Interval, avaraged_day$x, type = "l", 
+     main = "Average daily activity pattern", 
+     ylab = "Avarage number of steps taken", 
+     xlab = "5-min intervals")
+print(ggp)
+dev.off()
+
+# The interval with the maximum number of steps
+
+interval_row <- which.max(avaraged_day$x)
+max_interval <- avaraged_day[interval_row,1]
+print (max_interval)
+
+```
+
+
+## Imputing missing values
+
+
+```{r}
+
+#the total number of missing values
+
+sum(is.na(main_data$steps))
+
+
+# filling in all of the missing values.
+
+imputed_steps <- avaraged_day$mean[match(main_data$interval, avaraged_day$interval)]
+
+#a new dataset with the missing data filled in.
+
+activity_imputed <- transform(main_data, steps = ifelse(is.na(main_data$steps), yes = imputed_steps, no = main_data$steps))
+total_steps_imputed <- aggregate(steps ~ date, activity_imputed, sum)
+names(total_steps_imputed) <- c("date", "daily_steps")
+
+# a new histogram of the total number of steps taken each day 
+
+png("plot3_Total_number_of_steps_per_day_IMPUTED_MISSING_VALUES.png", width=480, height=480)
+ggp <-hist(total_steps_imputed$daily_steps, col = "grey", xlab = "Total steps per day", ylim = c(0,30), main = "Total number of steps taken each day", breaks = seq(0,25000,by=2500))
+print(ggp)
+dev.off()
+
+#new mean of the total number of steps taken per day:
+
+mean(total_steps_imputed$daily_steps)
+
+#new median of the total number of steps taken per day:
+
+median(total_steps_imputed$daily_steps)
+
+
+```
+
+## Are there differences in activity patterns between weekdays and weekends?
+
+```{r}
+#a new variable in to identify whether a given date is a weekday or weekend day 
+activity_imputed$date <- as.Date(activity_imputed$date)
+activity_imputed$weekday <- weekdays(activity_imputed$date)
+activity_imputed$day_type <- ifelse(activity_imputed$weekday=="Saturday" |
+                                           activity_imputed$weekday=="Sunday","Weekend","Weekday")
+activity_imputed$day_type <- factor(activity_imputed$day_type)
+
+# the number of steps for all 5-min intervals, averaged across weekdays and weekends
+day_types_data <- aggregate(steps ~ interval + day_type, data=activity_imputed, mean)
+
+png("plot4_Weekdays_and_weekends_activity_patters.png", width=480, height=480)
+ggp <-ggplot(day_types_data, aes(interval, steps)) + 
+        geom_line() + 
+        facet_grid(day_type ~ .) +
+        xlab("5-minute intervals") + 
+        ylab("Avarage number of steps taken") +
+        ggtitle("Weekdays and weekends activity patterns")
+print(ggp)
+dev.off()
+
+
+```
